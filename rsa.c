@@ -29,20 +29,6 @@ int64_t gcd(int64_t a, int64_t b)
   return b;
 }
 
-// This computes the multiplicative inverse of a modulo b.
-/*int mod_inv(int a, int b)
-{
-  int64_t b0 = b, t, q;
-  int64_t x0 = 0, x1 = 1;
-  if (b == 1) return 1;
-  while (a > 1) {
-    	q = a / b;
-		t = b, b = a % b, a = t;
-			t = x0, x0 = x1 - q * x0, x1 = t;
-  }
-  if (x1 < 0) x1 += b0;
-  return x1;
-}*/
 
 int64_t ExtEuclid(int64_t a, int64_t b)
 {
@@ -52,15 +38,13 @@ int64_t ExtEuclid(int64_t a, int64_t b)
    m = x-u*q; n = y-v*q;
    gcd = a; a = r; x = u; y = v; u = m; v = n;
    }
-   printf("(%ld, %ld)\n", (long)x,(long)y);
    return y;
 }
 
 
-
 // Calling this function will generate a public and private key and store them in the pointers
 // it is given. 
-void gen_keys(struct public_key_class *pub, struct private_key_class *priv, char *PRIME_SOURCE_FILE)
+void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, char *PRIME_SOURCE_FILE)
 {
   FILE *primes_list;
   if(!(primes_list = fopen(PRIME_SOURCE_FILE, "r"))){
@@ -124,12 +108,116 @@ void gen_keys(struct public_key_class *pub, struct private_key_class *priv, char
   while(gcd(phi_max, e) != 1);
  
   // Next, we need to choose a,b, so that a*max+b*e = gcd(max,e). We actually only need b
-  // here, and in keeping with the usual notation of RSA we'll call it d.
+  // here, and in keeping with the usual notation of RSA we'll call it d. We'd also like 
+  // to make sure we get a representation of d as positive, hence the while loop.
   d = ExtEuclid(phi_max,e);
+  while(d < 0){
+    d = d+phi_max;
+  }
 
-  printf("%lld\n%lld\n", (long long)ExtEuclid(3,5), (long long)ExtEuclid(3, 7));
-  printf("d               : %lld\ne               : %lld\nphi(max)        : %lld\nd*e mod phi(max): %lld\n",
-    (long long)d,(long long)e, (long long)phi_max, (long long)((d*e) % phi_max));
+  // We now store the public / private keys in the appropriate structs
+  pub->modulus = max;
+  pub->exponent = e;
 
+  priv->modulus = max;
+  priv->exponent = d;
+}
+
+
+int64_t *rsa_encrypt(const char *message, const unsigned long message_size, 
+                     const struct public_key_class *pub)
+{
+  int64_t *encrypted = malloc(sizeof(int64_t)*message_size);
+  if(encrypted == NULL){
+    fprintf(stderr,
+     "Error: Heap allocation failed.\n");
+    return NULL;
+  }
+  int i = 0;
+  for(i=0; i < message_size; i++){
+    encrypted[i] = pow(message[i],pub->exponent);
+  }
+  return encrypted;
+}
+
+
+char *rsa_decrypt(const int64_t *message, 
+                  const unsigned long message_size, 
+                  const struct private_key_class *priv)
+{
+  if(message_size % sizeof(int64_t) != 0){
+    fprintf(stderr,
+     "Error: message_size is not divisible by %d, so cannot be output of rsa_encrypt\n", (int)sizeof(int64_t));
+     return NULL;
+  }
+  char *decrypted = malloc(message_size*sizeof(int64_t));
+  if(decrypted == NULL){
+    fprintf(stderr,
+     "Error: Heap allocation failed.\n");
+    return NULL;
+  }
+  int i = 0;
+  for(i=0; i < message_size; i++){
+    decrypted[i] = pow(message[i],priv->exponent);
+  }
+  return decrypted;
 }
   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
