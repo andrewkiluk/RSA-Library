@@ -5,9 +5,6 @@
 
 // This is the header file for the library librsaencrypt.a
 
-// It can encrypt / decrypt data smaller than 2^32 - 1 bytes, or about 4 GB.
-
-
 // Change this line to the file you'd like to use as a source of primes.
 // The format of the file should be one prime per line.
 char *PRIME_SOURCE_FILE = "primes.txt";
