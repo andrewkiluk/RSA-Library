@@ -43,23 +43,6 @@ long long ExtEuclid(long long a, long long b)
    return y;
 }
 
-/*long long rsa_modExp(long long b, long long e, long long m)
-{
-  long long remainder = 0;
-  long long x = 1;
-
-  while(e != 0)
-  {
-    remainder = e % 2;
-    e = e/2;
-    if (remainder == 1){
-      x = (x * b) % m;
-      b = (b * b) % m;
-    }
-  }
-  return x;
-}*/
-
 long long rsa_modExp(long long b, long long e, long long m)
 {
   if (b < 0 || e < 0 || m <= 0){
@@ -76,12 +59,6 @@ long long rsa_modExp(long long b, long long e, long long m)
   }
 
 }
-
-/*long long rsa_modExp(const long long b, const long long e, const long long m)
-{
-  return b^e % m;
-}*/
-
 
 // Calling this function will generate a public and private key and store them in the pointers
 // it is given. 

@@ -39,7 +39,4 @@ long long *rsa_encrypt(const char *message, const unsigned long message_size, co
 // The decrypted data will be 1/8th the size of the encrypted data.
 char *rsa_decrypt(const long long *message, const unsigned long message_size, const struct private_key_class *pub);
 
-
-long long rsa_modExp(long long b, long long e, long long m);
-
 #endif
