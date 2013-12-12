@@ -21,12 +21,20 @@ int main(int argc, char **argv)
   }  
   
   long long *encrypted = rsa_encrypt(message, sizeof(message), pub);
+  if (!encrypted){
+    fprintf(stderr, "Error in encryption!\n");
+    return 1;
+  }
   printf("Encrypted:\n");
   for(i=0; i < strlen(message); i++){
     printf("%lld\n", (long long)encrypted[i]);
   }  
   
   char *decrypted = rsa_decrypt(encrypted, 8*sizeof(message), priv);
+  if (!decrypted){
+    fprintf(stderr, "Error in decryption!\n");
+    return 1;
+  }
   printf("Decrypted:\n");
   for(i=0; i < strlen(message); i++){
     printf("%lld\n", (long long)decrypted[i]);

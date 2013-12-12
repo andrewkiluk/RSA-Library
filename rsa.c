@@ -173,8 +173,8 @@ char *rsa_decrypt(const long long *message,
   }
   // We allocate space to do the decryption (temp) and space for the output as a char array
   // (decrypted)
-  char *decrypted = malloc(message_size*sizeof(char));
-  char *temp = malloc(message_size*sizeof(long long));
+  char *decrypted = malloc(message_size/sizeof(long long));
+  char *temp = malloc(message_size);
   if((decrypted == NULL) || (temp == NULL)){
     fprintf(stderr,
      "Error: Heap allocation failed.\n");
@@ -182,7 +182,7 @@ char *rsa_decrypt(const long long *message,
   }
   // Now we go through each 8-byte chunk and decrypt it.
   long long i = 0;
-  for(i=0; i < message_size; i++){
+  for(i=0; i < message_size/8; i++){
     temp[i] = rsa_modExp(message[i], priv->exponent, priv->modulus);
   }
   // The result should be a number in the char range, which gives back the original byte.
