@@ -46,6 +46,7 @@ long long ExtEuclid(long long a, long long b)
 long long rsa_modExp(long long b, long long e, long long m)
 {
   if (b < 0 || e < 0 || m <= 0){
+    printf("%s: Invalid parameter(s)!\n", __FUNCTION__);
     exit(1);
   }
   b = b % m;
@@ -57,12 +58,13 @@ long long rsa_modExp(long long b, long long e, long long m)
   if( e % 2 == 1){
     return ( b * rsa_modExp(b, (e-1), m) % m );
   }
-
+  printf("%s: Impossible!\n", __FUNCTION__);
+  exit(1);
 }
 
 // Calling this function will generate a public and private key and store them in the pointers
 // it is given. 
-void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, char *PRIME_SOURCE_FILE)
+void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, const char *PRIME_SOURCE_FILE)
 {
   FILE *primes_list;
   if(!(primes_list = fopen(PRIME_SOURCE_FILE, "r"))){
@@ -126,6 +128,9 @@ void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, 
     phi_max = (p-1)*(q-1);
   }
   while(!(p && q) || (p == q) || (gcd(phi_max, e) != 1));
+
+  fclose(primes_list);
+  primes_list = NULL;
  
   // Next, we need to choose a,b, so that a*max+b*e = gcd(max,e). We actually only need b
   // here, and in keeping with the usual notation of RSA we'll call it d. We'd also like 

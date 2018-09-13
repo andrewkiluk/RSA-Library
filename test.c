@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     printf("%lld\n", (long long)decrypted[i]);
   }  
   
-  printf("\n");
+  printf("\nDone\n");
   free(encrypted);
   free(decrypted);
   return 0;
