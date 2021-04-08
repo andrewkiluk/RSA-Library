@@ -223,54 +223,7 @@ char* rsa_oaep_decrypt(char* message, unsigned long *message_size, const struct 
       free(encrypted);
       return decrypted;
 }
-// B_CONNECT helper functions
-int b_raw_to_hex(char* instring, uint32_t* length, long long *rsa_raw, uint32_t message_length){
-      int i, j = 0;
-      memset(instring, '\0', *length);
-	for (i = 0; i < message_length; i++) {
-		instring += sprintf(instring, "%016llx", rsa_raw[i]);
-	}
-      *length = message_length * 16;
-      return 0;
-}
-int b_hex_to_raw(char* instring, uint32_t length, long long *rsa_raw, uint32_t* message_length){
-      *message_length = length /2;
-      int i;
-      for (i=0; i < length/16; i++){
-            sscanf(&instring[i*16], "%16llx", &rsa_raw[i]);
-      }
-      return 0;
-}
-int b_raw_to_string(char* instring, uint32_t* length, long long *rsa_raw, uint32_t message_length){
-      int i, j = 0;
-      memset(instring, '\0', *length);
-      for (i=0; i < message_length; i++){
-            if (j> *length){
-                  return -1;
-            }
-            sprintf(&instring[j], "%lld ", rsa_raw[i]);
-            while(instring[j++]!=' ')
-                  ;
-      }
-      *length = j;
-      return 0;
-}
-int b_string_to_raw(char* instring, uint32_t length, long long *rsa_raw, uint32_t* message_length){
-      int i = 0, j=0;
-      while (1){
-      if (i>= length)
-      break;
-      if (j> *message_length)
-            return -1;
-      sscanf(&instring[i], "%lld", &rsa_raw[j++]);
-      do{
-            i++;
-      }
-      while (instring[i]!=' ' && i<length);
-      }
-      *message_length = j*sizeof(long long);
-      return 0;
-}
+
 // This should totally be in the math library.
 static long long gcd(long long a, long long b)
 {
