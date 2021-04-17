@@ -30,20 +30,24 @@ static char cabsc(uint8_t in){
       return in >= 128 ? in >> 1: in;
 }
 //necessary forward declarations to place all of the OAEP stuff at the top
-long long *rsa_encrypt(const char *message, const unsigned long message_size, const struct public_key_class *pub);
-char *rsa_decrypt(const long long *message, const unsigned long message_size, const struct private_key_class *pub);
+long long *rsa_encrypt(const void *message, const unsigned long message_size, const struct public_key_class *pub);
+uint8_t *rsa_decrypt(const long long *message, const unsigned long message_size, const struct private_key_class *pub);
 /*
 This function is described very well on wikipedia, but the short version is:
 for every group of 32 bytes that is requested, apply sha256 to seed || counter (where || means concatenate; this is done while applying byte swapping)
 */
-static char* mgf1(const char* seed, const unsigned long seed_length, const unsigned long outlength){
-      char* r = (char*)malloc(outlength);
-      char* processed_seed = (char*)malloc(seed_length +4);
+static uint8_t* mgf1(const void* seed, const unsigned long seed_length, const unsigned long outlength){
+      uint8_t* r = (uint8_t*)malloc(outlength);
+      if (!r){
+            fprintf(stderr, "MALLOC error in mgf1 with params seed_length %lu and outlength %lu", seed_length, outlength);
+            return NULL;
+      }
+      uint8_t* processed_seed = (uint8_t*)malloc(seed_length +4);
       memcpy(processed_seed, seed, seed_length);
       int64_t processed = outlength;
       int copy, i, j;
       int counter = 0;
-      char* counterc =(char*) &counter;
+      uint8_t* counterc =(uint8_t*) &counter;
       while (processed>0){
             uint8_t hash[32];
             j = seed_length;
@@ -54,7 +58,7 @@ static char* mgf1(const char* seed, const unsigned long seed_length, const unsig
             copy = processed > 32 ? 32: processed;
             j = counter *32;
             for (i=0; i<copy; i++){
-                  r[j++] = cabsc(hash[i]);
+                  r[j++] = hash[i];    //cabsc(hash[i]);
             }
             counter++;
             processed -= copy;
@@ -62,53 +66,65 @@ static char* mgf1(const char* seed, const unsigned long seed_length, const unsig
       free(processed_seed);
       return r;
 }
-static char* ill2osp(const long long* message, const unsigned long  message_size, const unsigned long num_octets){
+static uint8_t* ill2osp(const long long* message, const unsigned long  message_size, const unsigned long num_octets){
       //test for endianess
       unsigned short testshort = 0x01;
-      char* charpointer = (char*)&testshort;
+      uint8_t* charpointer = (uint8_t*)&testshort;
       if (*charpointer == 0x01){
-      int i, j, k;
-      char* r = (char*)malloc(num_octets*message_size);
-      k=0;
-      //reverse byte order ignoring all data beyond num_octets
-      for (i=0; i<message_size; i++){
-            charpointer = (char*)&message[i];
-            for (j=num_octets-1; j>=0; j--){
-                  r[k++]=charpointer[j];
+            if (num_octets > 7){
+                  fprintf(stderr, "Invalid num_octets: %lu\n", num_octets);
+                  return NULL;
             }
-      }
-      return r;
+            int i, j, k;
+            uint8_t* r = (uint8_t*)malloc(num_octets*message_size);
+            if (!r){
+                  fprintf(stderr, "MALLOC error in ill2osp with params message_size: %lu, num_octets: %lu\n", message_size, num_octets);
+                  return NULL;
+            }
+            k=0;
+            //reverse byte order ignoring all data beyond num_octets
+            for (i=0; i<message_size; i++){
+                  charpointer = (uint8_t*)&message[i];
+                  for (j=num_octets-1; j>=0; j--){
+                        r[k++]=charpointer[j];
+                  }
+            }
+            return r;
       }
       else {
-            printf("Machine is BIG-ENDIAN\n");
+            fprintf(stderr, "Machine is BIG-ENDIAN\n");
             return NULL;
       }
 }
-static long long * osp2ill(char* message, const unsigned long message_size, const unsigned long num_octets){
+static long long * osp2ill(void* message, const unsigned long message_size, const unsigned long num_octets){
       //test for endianess
       unsigned short testshort = 0x01;
-      char* charpointer = (char*)&testshort;
+      uint8_t* charpointer = (uint8_t*)&testshort;
       if (*charpointer == 0x01){
-      int i, j, k, l;
-      long long* r = (long long*)malloc(sizeof(long long)*message_size);
-      k=0;
-      charpointer = (char*) r;
-      char* messagepointer;
-      //reverse byte order adding zero padding for bytes not represented by num_octets
-      for (i=0; i<message_size/num_octets; i++){
-            messagepointer = &message[i*num_octets];
-            l = num_octets;
-            for (j=7; j >= 0; j--){
-                  if (j <= 7 - num_octets)
-                        charpointer[k++] = 0x00;
-                  else
-                        charpointer[k++] = messagepointer[--l];
+            if (message_size % num_octets != 0){
+                  fprintf(stderr, "osp2ill error: Expected message size to be integer multiple of num octets.\nInstead found message_size: %lu and num_octets: %lu\n", message_size, num_octets);
+                  return NULL;
             }
-      }
-      return r;
+            int i, j, k, l;
+            long long* r = (long long*)malloc(sizeof(long long)*message_size);
+            k=0;
+            charpointer = (uint8_t*) r;
+            uint8_t* messagepointer;
+            //reverse byte order adding zero padding for bytes not represented by num_octets
+            for (i=0; i<message_size/num_octets; i++){
+                  messagepointer = &message[i*num_octets];
+                  l = num_octets;
+                  for (j=7; j >= 0; j--){
+                        if (j <= 7 - num_octets)
+                              charpointer[k++] = 0x00;
+                              else
+                              charpointer[k++] = messagepointer[--l];
+                  }
+            }
+            return r;
       }
       else {
-            printf("Machine is BIG-ENDIAN\n");
+            fprintf(stderr, "Machine is BIG-ENDIAN\n");
             return NULL;
       }
 }
@@ -147,16 +163,16 @@ all of M to reverse the process described above (since any small change at the i
 
 
 */
-char* rsa_oaep_encrypt(const char* message, unsigned long *message_size, const struct public_key_class *pub, const unsigned long k1, const unsigned long k2){
+void* rsa_oaep_encrypt(const void* message, unsigned long *message_size, const struct public_key_class *pub, const unsigned long k1, const unsigned long k2){
       //create random string of length k2
       char nonce[32];
       memset(nonce, '\0', 32);
       snprintf(nonce, 32, "%d", rand());
-      char* padding = mgf1(nonce, strlen(nonce), k2);
+      uint8_t* padding = mgf1((void*)nonce, strlen(nonce), k2);
       //expand padding to length k+1 message_size
-      char* rand_padding = mgf1(padding, k2, *message_size + k1);
+      uint8_t* rand_padding = mgf1(padding, k2, *message_size + k1);
       //place message in new buffer and pad with zeros
-      char* r = (char*)malloc(*message_size + k1 +k2);
+      uint8_t* r = (uint8_t*)malloc(*message_size + k1 +k2);
       memset(r, '0', *message_size + k1);
       memcpy(r, message, *message_size);
       //xor message (+padding) with random string
@@ -165,7 +181,7 @@ char* rsa_oaep_encrypt(const char* message, unsigned long *message_size, const s
             r[i] ^= rand_padding[i];
       }
       //compress scrambled message to k2 length and xor padding with that scramble
-      char* last_scramble = mgf1(r, mylength, k2);
+      uint8_t* last_scramble = mgf1(r, mylength, k2);
       for (i=0; i<k2; i++){
             padding[i]^= last_scramble[i];
       }
@@ -174,20 +190,20 @@ char* rsa_oaep_encrypt(const char* message, unsigned long *message_size, const s
             r[j++]=padding[i];
       }
       *message_size = *message_size + k1 + k2;
-      long long *encrypted = rsa_encrypt(r, *message_size, pub);
+      long long *encrypted = rsa_encrypt((void*)r, *message_size, pub);
       //this gets the minimum number of octets required to represent every encoded number
       unsigned long num_octets = getnumoctets((void*)pub);
       //this produces a new buffer with the compressed, scramble encrypted buffer
-      char* osp = ill2osp(encrypted, *message_size, num_octets);
+      uint8_t* osp = ill2osp(encrypted, *message_size, num_octets);
       *message_size = (*message_size) * num_octets;
       free(last_scramble);
       free(rand_padding);
       free(padding);
       free(encrypted);
       free(r);
-      return osp;
+      return (void*)osp;
 }
-char* rsa_oaep_decrypt(char* message, unsigned long *message_size, const struct private_key_class *priv, const unsigned long k1, const unsigned long k2){
+void* rsa_oaep_decrypt(void* message, unsigned long *message_size, const struct private_key_class *priv, const unsigned long k1, const unsigned long k2){
       //get the number of octets required to represent the encrypted data and translate that data into an array of long longs (as expected by rsa_decrypt)
       unsigned long num_octets = getnumoctets((void*)priv);
       long long *encrypted = osp2ill(message, *message_size, num_octets);
@@ -197,20 +213,20 @@ char* rsa_oaep_decrypt(char* message, unsigned long *message_size, const struct 
       (message + k1 + k2) * num_octets = message_size
       */
       unsigned long mymessage_size = *message_size / num_octets;
-      char* decrypted = rsa_decrypt(encrypted, mymessage_size*sizeof(long long), priv);
+      uint8_t* decrypted = rsa_decrypt(encrypted, mymessage_size*sizeof(long long), priv);
       //recover padding (the last k2 octets of the decrypted message)
-      char* padding = (char*)malloc(k2);
+      uint8_t* padding = (uint8_t*)malloc(k2);
       int i, j=mymessage_size-k2;
       for (i=0; i<k2; i++){
             padding[i]=decrypted[j++];
       }
       //padding is xored with mgf1(padded message)
-      char* last_scramble = mgf1(decrypted, mymessage_size-k2, k2);
+      uint8_t* last_scramble = mgf1(decrypted, mymessage_size-k2, k2);
       for (i=0; i<k2; i++){
             padding[i]^=last_scramble[i];
       }
       //message is xored with mgf1(padding)
-      char* rand_padding = mgf1(padding, k2, mymessage_size-k2);
+      uint8_t* rand_padding = mgf1(padding, k2, mymessage_size-k2);
       for (i=0; i<mymessage_size-k2; i++){
             decrypted[i]^=rand_padding[i];
       }
@@ -221,9 +237,8 @@ char* rsa_oaep_decrypt(char* message, unsigned long *message_size, const struct 
       free(last_scramble);
       free(padding);
       free(encrypted);
-      return decrypted;
+      return (void*)decrypted;
 }
-
 // This should totally be in the math library.
 static long long gcd(long long a, long long b)
 {
@@ -383,7 +398,7 @@ void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, 
 }
 
 
-long long *rsa_encrypt(const char *message, const unsigned long message_size,
+long long *rsa_encrypt(const void *message, const unsigned long message_size,
                      const struct public_key_class *pub)
 {
   long long *encrypted = malloc(sizeof(long long)*message_size);
@@ -392,19 +407,19 @@ long long *rsa_encrypt(const char *message, const unsigned long message_size,
      "Error: Heap allocation failed.\n");
     return NULL;
   }
-  long long i = 0;
+  unsigned long i = 0;
+  unsigned char *message_converted = (unsigned char *)message;
   for(i=0; i < message_size; i++){
     /*if (message[i]>=pub->modulus || message[i] < 0){
           printf("message out of range\n");
    }*/
-    if ((encrypted[i] = rsa_mymodExp(message[i], pub->exponent, pub->modulus)) == -1)
+    if ((encrypted[i] = rsa_modExp(message_converted[i], pub->exponent, pub->modulus)) == -1)
     return NULL;
   }
   return encrypted;
 }
 
-
-char *rsa_decrypt(const long long *message,
+uint8_t *rsa_decrypt(const long long *message,
                   const unsigned long message_size,
                   const struct private_key_class *priv)
 {
@@ -413,11 +428,9 @@ char *rsa_decrypt(const long long *message,
      "Error: message_size is not divisible by %d, so cannot be output of rsa_encrypt\n", (int)sizeof(long long));
      return NULL;
   }
-  // We allocate space to do the decryption (temp) and space for the output as a char array
-  // (decrypted)
-  char *decrypted = malloc(message_size/sizeof(long long));
-  char *temp = malloc(message_size);
-  if((decrypted == NULL) || (temp == NULL)){
+  // We allocate space for the output as a char array
+  uint8_t *decrypted = malloc(message_size/sizeof(long long));
+  if(decrypted == NULL){
     fprintf(stderr,
      "Error: Heap allocation failed.\n");
     return NULL;
@@ -425,16 +438,8 @@ char *rsa_decrypt(const long long *message,
   // Now we go through each 8-byte chunk and decrypt it.
   long long i = 0;
   for(i=0; i < message_size/8; i++){
-    if ((temp[i] = rsa_mymodExp(message[i], priv->exponent, priv->modulus)) == -1){
-          free(temp);
-          return NULL;
-      }
+        decrypted[i] = rsa_modExp(message[i], priv->exponent, priv->modulus);
   }
   // The result should be a number in the char range, which gives back the original byte.
-  // We put that into decrypted, then return.
-  for(i=0; i < message_size/8; i++){
-    decrypted[i] = temp[i];
-  }
-  free(temp);
   return decrypted;
 }
