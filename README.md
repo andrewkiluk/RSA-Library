@@ -7,3 +7,4 @@ Detailed descriptions of these functions are provided in the header file rsa.h.
 I make no claim that any good encyrption practices are used here. Probably don't use this for any production purposes.
 
 Created by Andrew Kiluk
+This version edited by oskarvonephesos to include OAEP functionality among other things.
