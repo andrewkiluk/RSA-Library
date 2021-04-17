@@ -42,7 +42,41 @@ long long ExtEuclid(long long a, long long b)
    }
    return y;
 }
-long long modmult(long long a,long long b,long long mod);
+static inline long long modmult(long long a,long long b,long long mod)
+{
+   // this is necessary since we will be dividing by a
+   if (a == 0 ){
+         return 0;
+   }
+   register long long product = a * b;
+    //if multiplication does not overflow, we can use it
+   if (product / a == b){
+          return product % mod;
+   }
+   // if a % 2 == 1 i. e. a >> 1 is not a / 2
+   if ( a & 1 ) {
+         product = modmult((a>>1), b, mod);
+         if ((product << 1) > product ){
+         return ((( product << 1 ) % mod ) + b) % mod;
+      }
+   }
+   //implicit else
+   product = modmult((a >> 1), b, mod);
+   if ((product << 1) > product){
+         return (product << 1) % mod ;
+         }
+   //implicit else: this is about 10x slower than the code above, but it will not overflow
+    long long sum;
+    sum = 0;
+    while(b>0)
+    {
+        if(b&1)
+            sum = (sum + a) % mod;
+        a = (2*a) % mod;
+        b>>=1;
+    }
+    return sum;
+}
 long long rsa_modExp(long long b, long long e, long long m)
 {
       long long product;
@@ -60,40 +94,6 @@ long long rsa_modExp(long long b, long long e, long long m)
       }
       return product;
 }
-long long modmult(long long a,long long b,long long mod)
-{
-    if (a == 0 || b < mod / a)
-        return (a*b)%mod;
-    long long sum;
-    sum = 0;
-    while(b>0)
-    {
-        if(b&1)
-            sum = (sum + a) % mod;
-        a = (2*a) % mod;
-        b>>=1;
-    }
-    return sum;
-}
-/// @deprecated: this is unsafe
-/*
-long long rsa_modExp(long long b, long long e, long long m)
-{
-  if (b < 0 || e < 0 || m <= 0){
-    exit(1);
-  }
-  b = b % m;
-  if(e == 0) return 1;
-  if(e == 1) return b;
-  if( e % 2 == 0){
-    return ( rsa_modExp(b * b % m, e/2, m) % m );
-  }
-  if( e % 2 == 1){
-    return ( b * rsa_modExp(b, (e-1), m) % m );
-  }
-
-}
-*/
 // Calling this function will generate a public and private key and store them in the pointers
 // it is given.
 void rsa_gen_keys(struct public_key_class *pub, struct private_key_class *priv, char *PRIME_SOURCE_FILE)
